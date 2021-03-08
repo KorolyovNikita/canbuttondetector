@@ -73,7 +73,6 @@ def parse_log(filepath):
 
 
 def findButton(msgGroup, button):
-    result = []
     for n, data in msgGroup.byteIterator():
         mask_queue = deque([BitMask(0xFF)])
 
@@ -94,8 +93,7 @@ def findButton(msgGroup, button):
                     break
             else:
                 if i == button.count * 2:
-                    result.append((msgGroup.ID, mask.get(), n, pair, timeline))
-    return result
+                    yield msgGroup.ID, mask.get(), n, pair, timeline
 
 
 def main():
