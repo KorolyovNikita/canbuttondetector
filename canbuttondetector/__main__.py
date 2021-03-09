@@ -7,6 +7,16 @@ from bitmask import BitMask
 from printanswer import printAnswer
 
 
+def get_args():
+    arg_parser = argparse.ArgumentParser(description='Hello Author!')
+    arg_parser.add_argument('input_file')
+    arg_parser.add_argument('-t', metavar='--timeout',
+                            type=int, default=-1,
+                            help='delay between clicks. \
+Default: 1000ms for fix, 500ms for moment')
+    return arg_parser.parse_args()
+
+
 class MessegeGroup:
     def __init__(self, ID):
         self.ID = ID
@@ -27,33 +37,6 @@ class MessegeGroup:
             yield n, tuple(msg[n] for msg in self.data)
 
 
-class Button:
-    def __init__(self, args):
-        sequence = re.findall(r'\b[01]+', args.input_file)
-        assert sequence, 'invalid file name'
-        sequence = Counter(sequence[-1])
-
-        self.fix = True if len(sequence) == 2 else False
-        self.count = sequence['1']
-        self.timeout = args.t if args.t > -1 else 1000 if self.fix else 500
-
-    def checkFront(self, i, timeline, gr):
-        timeline.append(next(gr)[1])
-        durations = i and timeline[-1] - timeline[-2] < self.timeout
-
-        return durations if self.fix else i % 2 and (tuple(gr) or durations)
-
-
-def get_args():
-    arg_parser = argparse.ArgumentParser(description='Hello Author!')
-    arg_parser.add_argument('input_file')
-    arg_parser.add_argument('-t', metavar='--timeout',
-                            type=int, default=-1,
-                            help='delay between clicks. \
-Default: 1000ms for fix, 500ms for moment')
-    return arg_parser.parse_args()
-
-
 def parse_log(filepath):
     log = {}
     with open(filepath, 'r') as file:
@@ -70,6 +53,23 @@ def parse_log(filepath):
                 log[ID] = MessegeGroup(ID)
             log[ID].add(byte_n, msg, period)
     return log
+
+
+class Button:
+    def __init__(self, args):
+        sequence = re.findall(r'\b[01]+', args.input_file)
+        assert sequence, 'invalid file name'
+        sequence = Counter(sequence[-1])
+
+        self.fix = True if len(sequence) == 2 else False
+        self.count = sequence['1']
+        self.timeout = args.t if args.t > -1 else 1000 if self.fix else 500
+
+    def checkFront(self, i, timeline, gr):
+        timeline.append(next(gr)[1])
+        durations = i and timeline[-1] - timeline[-2] < self.timeout
+
+        return durations if self.fix else i % 2 and (tuple(gr) or durations)
 
 
 def findButton(msgGroup, button):
