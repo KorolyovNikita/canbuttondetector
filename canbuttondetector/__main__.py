@@ -57,43 +57,51 @@ def parse_log(filepath):
 
 class Button:
     def __init__(self, args):
-        sequence = re.findall(r'\b[01]+', args.input_file)
+        sequence = re.findall(r'\b[01]+', args.input_file)[-1]
         assert sequence, 'invalid file name'
-        sequence = Counter(sequence[-1])
+
+        self.sequence_len = len(sequence)
+        sequence = Counter(sequence)
 
         self.fix = True if len(sequence) == 2 else False
         self.count = sequence['1']
         self.timeout = args.t if args.t > -1 else 1000 if self.fix else 500
 
-    def checkFront(self, i, timeline, gr):
-        timeline.append(next(gr)[1])
-        durations = i and timeline[-1] - timeline[-2] < self.timeout
-
-        return durations if self.fix else i % 2 and (tuple(gr) or durations)
-
 
 def findButton(msgGroup, button):
-    for n, data in msgGroup.byteIterator():
+    if len(msgGroup) < button.sequence_len:
+        return
+
+    for byte_n, data in msgGroup.byteIterator():
         mask_queue = deque([BitMask(0xFF)])
 
         while(mask_queue):
             mask = mask_queue.popleft()
-            values = [val & mask.get() for val in data]
+            values = (val & mask.get() for val in data)
 
-            timeline, pair = [], deque(maxlen=2)
+            timeline = []
+            pair = deque(maxlen=2)
+
             for i, gr in enumerate(groupby(zip(values, msgGroup.timeline),
                                            lambda x: x[0])):
-                val = gr[0]
+                val, period = next(gr[1])
+
                 if i > 1 and val not in pair:
                     mask_queue.extend(mask.split())
                     break
-                pair.appendleft(val)
 
-                if button.checkFront(i, timeline, gr[1]):
+                check_timeout = i and period - timeline[-1] < button.timeout
+                if button.fix:
+                    if check_timeout:
+                        break
+                elif i % 2 and (tuple(gr[1]) or check_timeout):
                     break
+
+                pair.appendleft(val)
+                timeline.append(period)
             else:
                 if i == button.count * 2:
-                    yield msgGroup.ID, mask.get(), n, pair, timeline
+                    yield msgGroup.ID, mask.get(), byte_n, pair, timeline
 
 
 def main():
