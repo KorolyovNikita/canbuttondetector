@@ -11,9 +11,8 @@ def get_args():
     arg_parser = argparse.ArgumentParser(description='Hello Author!')
     arg_parser.add_argument('input_file')
     arg_parser.add_argument('-t', metavar='--timeout',
-                            type=int, default=-1,
-                            help='delay between clicks. \
-Default: 1000ms for fix, 500ms for moment')
+                            type=int, default=100,
+                            help='delay between clicks. Default: 100ms')
     return arg_parser.parse_args()
 
 
@@ -51,21 +50,8 @@ def parse_log(filepath):
     return log
 
 
-class Button:
-    def __init__(self, args):
-        sequence = re.findall(r'\b[01]+', args.input_file)[-1]
-        assert sequence, 'invalid file name'
-
-        self.sequence_len = len(sequence)
-        sequence = Counter(sequence)
-
-        self.fix = True if len(sequence) == 2 else False
-        self.count = sequence['1']
-        self.timeout = args.t if args.t > -1 else 1000 if self.fix else 500
-
-
-def findButton(msgGroup, button):
-    if len(msgGroup) < button.sequence_len:
+def findButton(msgGroup, sequence_len, timeout):
+    if len(msgGroup) < sequence_len:
         return
 
     for byte_n in range(msgGroup.byte_n):
@@ -86,28 +72,30 @@ def findButton(msgGroup, button):
                     mask_queue.extend(mask.split())
                     break
 
-                check_timeout = i and period - timeline[-1] < button.timeout
-                if button.fix:
-                    if check_timeout:
-                        break
-                elif i % 2 and (tuple(gr[1]) or check_timeout):
+                if i and period - timeline[-1] < timeout:
                     break
 
                 pair.appendleft(val)
                 timeline.append(period)
             else:
-                if i == button.count * 2:
+                if i + 1 == sequence_len:
                     yield msgGroup.ID, mask.get(), byte_n, pair, timeline
 
 
 def main():
     args = get_args()
     log = parse_log(args.input_file)
-    button = Button(args)
+
+    sequence = re.findall(r'\b[01]+', args.input_file)[-1]
+    assert sequence, 'invalid file name'
+
+    sequence_len = (len(sequence) * 2 + 1
+                    if len(Counter(sequence)) == 1
+                    else len(sequence))
 
     candidates = []
     for ID, group in log.items():
-        candidates.extend(findButton(group, button))
+        candidates.extend(findButton(group, sequence_len, args.t))
 
     printAnswer(candidates)
 

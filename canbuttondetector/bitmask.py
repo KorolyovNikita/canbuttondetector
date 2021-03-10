@@ -5,7 +5,7 @@ class BitMask:
 
     def split(self):
         if self.width < 2:
-            return []
+            return
         shift = self.width // 2
         left = BitMask((self.mask << shift) & self.mask, shift)
         right = BitMask((self.mask >> shift) & self.mask, shift)
