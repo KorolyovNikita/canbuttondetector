@@ -32,10 +32,6 @@ class MessegeGroup:
         self.data.append(msg)
         self.timeline.append(period)
 
-    def byteIterator(self):
-        for n in range(self.byte_n):
-            yield n, tuple(msg[n] for msg in self.data)
-
 
 def parse_log(filepath):
     log = {}
@@ -72,12 +68,12 @@ def findButton(msgGroup, button):
     if len(msgGroup) < button.sequence_len:
         return
 
-    for byte_n, data in msgGroup.byteIterator():
+    for byte_n in range(msgGroup.byte_n):
         mask_queue = deque([BitMask(0xFF)])
 
         while(mask_queue):
             mask = mask_queue.popleft()
-            values = (val & mask.get() for val in data)
+            values = (msg[byte_n] & mask.get() for msg in msgGroup.data)
 
             timeline = []
             pair = deque(maxlen=2)
