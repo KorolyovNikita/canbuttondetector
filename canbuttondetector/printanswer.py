@@ -15,7 +15,7 @@ def printAnswer(candidates):
         release, press = pair
 
         val = max(release, press)
-        byte_n = f'd{byte_n + 1}'
+        byte_n = f'd{byte_n}'
 
         equality = ['==', '!=']
         if press < release:
