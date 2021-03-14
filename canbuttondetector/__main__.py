@@ -1,5 +1,5 @@
-from itertools import groupby
-from collections import deque, Counter
+from itertools import groupby, cycle
+from collections import deque
 import argparse
 import re
 
@@ -11,8 +11,8 @@ def get_args():
     arg_parser = argparse.ArgumentParser(description='Hello Author!')
     arg_parser.add_argument('input_file')
     arg_parser.add_argument('-t', metavar='--timeout',
-                            type=int, default=100,
-                            help='delay between clicks. Default: 100ms')
+                            type=int, default=(700, 100), nargs=2,
+                            help='Default: for low 700ms, for high 100ms')
     return arg_parser.parse_args()
 
 
@@ -65,20 +65,21 @@ def findButton(msgGroup, sequence_len, timeout):
             pair = deque(maxlen=2)
 
             for i, gr in enumerate(groupby(zip(values, msgGroup.timeline),
-                                           lambda x: x[0])):
+                                           lambda x: x[0]), start=1):
                 val, period = next(gr[1])
 
-                if i > 1 and val not in pair:
+                if i > 2 and val not in pair:
                     mask_queue.extend(mask.split())
-                    break
-
-                if i and period - timeline[-1] < timeout:
                     break
 
                 pair.appendleft(val)
                 timeline.append(period)
             else:
-                if i + 1 == sequence_len:
+                check_timeout = map(lambda prev, curr, t: (curr - prev) > t,
+                                    timeline, timeline[1:],
+                                    cycle(timeout))
+
+                if i == sequence_len and all(check_timeout):
                     yield msgGroup.ID, mask.get(), byte_n, pair, timeline
 
 
@@ -89,9 +90,9 @@ def main():
     sequence = re.findall(r'\b[01]+', args.input_file)[-1]
     assert sequence, 'invalid file name'
 
-    sequence_len = (len(sequence) * 2 + 1
-                    if len(Counter(sequence)) == 1
-                    else len(sequence))
+    sequence_len = (len(sequence)
+                    if '0' in sequence
+                    else len(sequence) * 2 + 1)
 
     candidates = []
     for ID, group in log.items():
